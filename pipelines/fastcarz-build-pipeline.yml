@@ -1,0 +1,69 @@
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include: 
+    - /FastCarz/*
+    - /FastCarzApi/*
+    - /FastCarz.Tests/*
+
+stages:
+- stage: Build
+  displayName: Build stage
+  jobs:  
+  - job: Build
+    displayName: Build job
+    pool: 
+      vmImage: 'windows-latest'
+    steps:
+    - task: NuGetCommand@2
+      displayName: 'Nuget Restore'
+      inputs:
+        command: 'restore'
+        restoreSolution: '**/*.sln'
+        feedsToUse: 'select'
+    - task: MSBuild@1
+      displayName: 'Build FastCarz Solution'
+      inputs:
+        solution: '**/*.sln'
+        configuration: 'Release'
+    - task: VSTest@2
+      displayName: 'Execute Testcases of FastCarz'
+      inputs:
+        testSelector: 'testAssemblies'
+        testAssemblyVer2: |
+          **\*test*.dll
+          !**\*TestAdapter.dll
+          !**\obj\**
+        searchFolder: '$(System.DefaultWorkingDirectory)\FastCarz.Tests'
+    - task: CopyFiles@2
+      displayName: 'Copy FastCarz WebApp Build Files'
+      inputs:
+        SourceFolder: FastCarz/bin
+        TargetFolder: '$(build.artifactstagingdirectory)/FastCarzWebApp'
+    - task: CopyFiles@2
+      displayName: 'Copy FastCarz Web API Build Files'
+      inputs:
+        SourceFolder: FastCarzApi/bin
+        TargetFolder: '$(build.artifactstagingdirectory)/FastCarzWebAPI'
+    - task: PublishTestResults@2
+      enabled: false
+      displayName: 'Publish test results from **/TESTS-*.xml'
+      inputs:
+          testResultsFormat: 'VSTest'
+          testResultsFiles: '**/TestResults/*.trx'
+          searchFolder: '$(System.DefaultWorkingDirectory)'
+    - task: PublishBuildArtifacts@1
+      displayName: Publish FastCarz WebApp Artifact
+      inputs:
+        PathtoPublish: '$(build.artifactstagingdirectory)/FastCarzWebApp'
+        ArtifactName: 'FastCarzWebApp'
+        publishLocation: 'Container'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: Publish FastCarz WebAPI Artifact
+      inputs:
+        PathtoPublish: '$(build.artifactstagingdirectory)/FastCarzWebApi'
+        ArtifactName: 'FastCarzWebApi'
+        publishLocation: 'Container'
